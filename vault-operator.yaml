@@ -1,0 +1,115 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vault-operator
+  labels:
+    app: vault-operator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: vault-operator
+  template:
+    metadata:
+      labels:
+        app: vault-operator
+    spec:
+      imagePullSecrets:
+      - name: registrysecret
+      serviceAccountName: default
+
+      volumes:
+        - name: vault-token
+          emptyDir:
+            medium: Memory
+
+        - name: config
+          configMap:
+            name: vault-operator-vault-configmap
+            items:
+              - key: vault-agent-config.hcl
+                path: vault-agent-config.hcl
+
+              - key: consul-template-config.hcl
+                path: consul-template-config.hcl
+
+        - name: shared-data
+          emptyDir: {}
+      containers:
+      - name: vault-operator
+        image: harbor.wise-paas.io/li.jie/vault-operator:v19
+        volumeMounts:
+        - name: shared-data
+          mountPath: /app/secrets
+        env:
+        - name: name
+          value: "aaa"
+          
+      # Consul Template container
+      - name: consul-template
+        image: hashicorp/consul-template:alpine
+        imagePullPolicy: Always
+
+        volumeMounts:
+          - name: vault-token
+            mountPath: /home/vault
+
+          - name: config
+            mountPath: /etc/consul-template
+
+          - name: shared-data
+            mountPath: /etc/secrets
+
+        env:
+          - name: HOME
+            value: /home/vault
+
+          - name: VAULT_ADDR
+            value: http://vault.vault.svc.cluster.local:8200
+
+        # Consul-Template looks in $HOME/.vault-token, $VAULT_TOKEN, or -vault-token (via CLI)
+        args:
+          [
+            "-config=/etc/consul-template/consul-template-config.hcl",
+            #"-log-level=debug",
+          ]
+          
+          
+      initContainers:
+ 
+      - name: vault-agent-auth
+        image: vault
+
+        volumeMounts:
+          - name: config
+            mountPath: /etc/vault
+          - name: vault-token
+            mountPath: /home/vault
+
+        # This assumes Vault running on local host and K8s running in Minikube using VirtualBox
+        env:
+          - name: VAULT_ADDR
+            value: http://vault.vault.svc.cluster.local:8200
+
+        # Run the Vault agent
+        args:
+          [
+            "agent",
+            "-config=/etc/vault/vault-agent-config.hcl",
+            #"-log-level=debug",
+          ]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vault-operator
+spec:
+  selector:
+    app: vault-operator
+  type: LoadBalancer
+  ports:
+  - name: http
+    protocol: TCP
+    port: 80
+    targetPort: 3001
+        
