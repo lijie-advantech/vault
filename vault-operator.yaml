@@ -37,7 +37,7 @@ spec:
           emptyDir: {}
       containers:
       - name: vault-operator
-        image: harbor.wise-paas.io/li.jie/vault-operator:v19
+        image: harbor-axa.wise-paas.com.cn/li.jie/vault-operator:v22
         volumeMounts:
         - name: shared-data
           mountPath: /app/secrets
