@@ -5,24 +5,53 @@ import (
 	"os"
 	"encoding/json"	
 	"strings"
+	"encoding/base64"
 	"io/ioutil"		
 	"github.com/tidwall/sjson"
 	"github.com/tidwall/gjson"
-	"github.com/vault/vault/pkg/public"
+	
 )
-
+func GetDefaultSecretToken(clusterName string, namespaceName string, mpToken string) string{
+	//get secret token	
+	var jwtToken string
+	mpUrl := fmt.Sprintf("%s/v1/datacenter/cluster/%s/namespace/%s/secrets", 
+	    os.Getenv("MP_ADDR"), clusterName, namespaceName)	
+	respSec, err := httpDo("GET", mpUrl, nil, "Authorization", mpToken)	
+	if ( err != nil ) {
+		fmt.Printf("MP get secrets fail:%v", err)		
+		return ""
+	}	
+	respBodySec, err := ioutil.ReadAll(respSec.Body)
+	fmt.Println(string(respBodySec))	
+	if (respSec.StatusCode != 200) {
+		fmt.Println(string(respBodySec))		
+		return ""
+	}	
+	if ( err != nil ) {
+		fmt.Printf("MP get secret body fail:%v", err)		
+		return ""
+	}		
+	result := gjson.GetBytes(respBodySec, `items`)	
+	for _, name := range result.Array() {
+		secretName := gjson.Get(name.String(), `metadata.name`)
+		fmt.Printf("secret name is: %s\r\n", secretName)
+		if (strings.Contains(secretName.String(), "default-token")) {
+			jwtStr := gjson.Get(name.String(), `data.token`)			
+			jwtBase64, _ := base64.StdEncoding.DecodeString(jwtStr.String())
+			jwtToken = string(jwtBase64)				
+		}
+	}
+	fmt.Printf("jwt token is:%s\r\n", jwtToken)	
+	return jwtToken
+}
 
 func CreateConfigmap(clusterName string, namespaceName string, deploymentName string, 
-	kubernetesPath string, template string) (bool){
+	kubernetesPath string, template string, mpToken string) (bool){
 	
 	configmapName := deploymentName + "-vault-configmap"
 	mpUrl := fmt.Sprintf("%s/v1/datacenter/cluster/local/namespace/%s/configmap/%s", 
-	    public.MP_ADDR, namespaceName, configmapName)	
-	mpToken := public.MP_TOKEN
-
-        fmt.Printf("mpurl is %s, mp token is %s\r\n", mpUrl, mpToken)
-
-	resp, err := httpDo("DELETE", mpUrl, nil, "Authorization", mpToken)	
+	    os.Getenv("MP_ADDR"), namespaceName, configmapName)		
+    resp, err := httpDo("DELETE", mpUrl, nil, "Authorization", mpToken)	
 	bodyByte, _ := ioutil.ReadAll(resp.Body)
 	fmt.Println(string(bodyByte))
 	if ( err != nil ) {
@@ -31,7 +60,6 @@ func CreateConfigmap(clusterName string, namespaceName string, deploymentName st
 	}
 
 	roleName := fmt.Sprintf("clusterName_%s_namespaceName_%s", clusterName, namespaceName)
-
 	curDir, _ := os.Getwd()
 	vacofByte, err := ioutil.ReadFile(curDir + "/vault-agent-config.hcl")
 	if err != nil {
@@ -63,7 +91,7 @@ func CreateConfigmap(clusterName string, namespaceName string, deploymentName st
 	body, _ := json.Marshal(st)
 
 	mpUrl = fmt.Sprintf("%s/v1/datacenter/cluster/local/namespace/%s/configmap", 
-	    public.MP_ADDR, namespaceName)	
+	    os.Getenv("MP_ADDR"), namespaceName)	
 	
 	_, err = httpDo("POST", mpUrl, body, "Authorization", mpToken)	
 	if ( err != nil ) {
@@ -74,12 +102,11 @@ func CreateConfigmap(clusterName string, namespaceName string, deploymentName st
 	
 }
 
-func DeletePod(clusterName string, namespaceName string, podName string) (bool) {
+func DeletePod(clusterName string, namespaceName string, podName string, mpToken string) (bool) {
 
 	mpUrl := fmt.Sprintf("%s/v1/datacenter/cluster/local/namespace/%s/pod/%s", 
-	    public.MP_ADDR, namespaceName, podName)	
-	mpToken := public.MP_TOKEN
-
+	    os.Getenv("MP_ADDR"), namespaceName, podName)	
+	
 	_, err := httpDo("DELETE", mpUrl, nil, "Authorization", mpToken)	
 	if ( err != nil ) {
 	    fmt.Printf("MP delete pod fail:%v", err)	    
@@ -88,12 +115,11 @@ func DeletePod(clusterName string, namespaceName string, podName string) (bool) 
 	return true
 }
 
-func AddDeploymentLabel(clusterName string, namespaceName string, deploymentName string) (bool) {
+func AddDeploymentLabel(clusterName string, namespaceName string, deploymentName string,
+	                    mpToken string) (bool) {
 	
 	mpUrl := fmt.Sprintf("%s/v1/datacenter/cluster/local/namespace/%s/deployment/%s", 
-	    public.MP_ADDR, namespaceName, deploymentName)	
-	mpToken := public.MP_TOKEN
-
+	    os.Getenv("MP_ADDR"), namespaceName, deploymentName)		
 	//get deployment
 	respDeploy, err := httpDo("GET", mpUrl, nil, "Authorization", mpToken)	
 	if ( err != nil ) {
@@ -113,7 +139,7 @@ func AddDeploymentLabel(clusterName string, namespaceName string, deploymentName
 
 	//get pods from deployment
 	mpUrl = fmt.Sprintf("%s/v1/datacenter/cluster/local/namespace/%s/deploymentpods/%s", 
-		public.MP_ADDR, namespaceName, deploymentName)	
+		os.Getenv("MP_ADDR"), namespaceName, deploymentName)	
 	respPod, err := httpDo("GET", mpUrl, nil, "Authorization", mpToken)
 	if ( err != nil ) {
 		fmt.Printf("MP get deployment fail:%v", err)
@@ -123,7 +149,7 @@ func AddDeploymentLabel(clusterName string, namespaceName string, deploymentName
 	result := gjson.GetBytes( podByte, "#.metadata.name" )	
 	for _, name := range result.Array() {		
 		fmt.Printf("pod name is %s", name.String())
-		DeletePod(clusterName, namespaceName, name.String())
+		DeletePod(clusterName, namespaceName, name.String(), mpToken)
 	}
 		
 	return true
