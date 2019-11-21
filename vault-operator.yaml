@@ -37,13 +37,15 @@ spec:
           emptyDir: {}
       containers:
       - name: vault-operator
-        image: harbor-axa.wise-paas.com.cn/li.jie/vault-operator:v22
+        image: harbor.wise-paas.io/li.jie/vault-operator:v27
         volumeMounts:
         - name: shared-data
           mountPath: /app/secrets
         env:
-        - name: name
-          value: "aaa"
+        - name: VAULT_ADDR
+          value: "http://172.21.92.205:8200"
+        - name: MP_ADDR
+          value: "http://172.21.92.195"
           
       # Consul Template container
       - name: consul-template
@@ -65,7 +67,7 @@ spec:
             value: /home/vault
 
           - name: VAULT_ADDR
-            value: http://vault.vault.svc.cluster.local:8200
+            value: http://172.21.92.205:8200
 
         # Consul-Template looks in $HOME/.vault-token, $VAULT_TOKEN, or -vault-token (via CLI)
         args:
@@ -89,7 +91,7 @@ spec:
         # This assumes Vault running on local host and K8s running in Minikube using VirtualBox
         env:
           - name: VAULT_ADDR
-            value: http://vault.vault.svc.cluster.local:8200
+            value: http://172.21.92.205:8200
 
         # Run the Vault agent
         args:
