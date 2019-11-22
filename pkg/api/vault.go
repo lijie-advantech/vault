@@ -8,23 +8,21 @@ import (
 	"encoding/json"	
 	"github.com/gin-gonic/gin"	
 	"github.com/tidwall/gjson"
-	
+	"github.com/sirupsen/logrus"	
 )
 
 func GetVaultRootToken() (string){
-	curDir, _ := os.Getwd()
+	curDir, _ := os.Getwd()	
 	bytes, err := ioutil.ReadFile(curDir + "/secrets/vault-secrets.txt")
-	fmt.Printf("Read content is %s\r\n", string(bytes))
-	if err != nil {
-		fmt.Printf("Read vault-secrets.txt fail %v", err)
+	logrus.Info("Read vault-secrets.txt content is ", string(bytes))		
+	if err != nil {		
+		logrus.Error(err)		
 		return ""
 	}	
 	token := gjson.GetBytes(bytes, "VAULT_TOKEN").String()	
-	fmt.Printf("vault_token is %s", token)
+	logrus.Info("Vault root token is ", token)	
 	return token
 }
-
-
 
 func ListSecrets(c *gin.Context) {
 	vaultRootToken := GetVaultRootToken()
@@ -52,8 +50,7 @@ func ListSecrets(c *gin.Context) {
 	secretPath := fmt.Sprintf("clusterName/%s/namespaceName/%s/%s", clusterName, 
         namespaceName, path)	
 	resp, err := ReadSecrets(secretPath, token)
-	if ( err != nil ) {
-		fmt.Printf("ReadSecrets fail:%v\r\n", err)
+	if ( err != nil ) {		
 		c.JSON(500, gin.H{"error": "ReadSecrets fail",})
 		return
 	}
@@ -90,8 +87,7 @@ func ListSecretKeys(c *gin.Context) {
 	secretPath := fmt.Sprintf("clusterName/%s/namespaceName/%s", clusterName, 
         namespaceName)	
 	resp, err := ReadSecretKeys(secretPath, token)
-	if ( err != nil ) {
-		fmt.Printf("ReadSecretKeys fail:%v\r\n", err)
+	if ( err != nil ) {		
 		c.JSON(500, gin.H{"error": "ReadSecretKeys fail",})
 		return
 	}
@@ -106,8 +102,7 @@ func ListSecretKeys(c *gin.Context) {
 
 func EnableVault(c *gin.Context) {
 	vaultRootToken := GetVaultRootToken()
-	if (vaultRootToken == "") {
-		fmt.Println("Get vault root token fail")
+	if (vaultRootToken == "") {		
 		c.JSON(500, gin.H{"error": "Get vault root token fail",})
 		return
 	}
@@ -121,8 +116,7 @@ func EnableVault(c *gin.Context) {
 	saName := "default" //later modify as default
 	saNamespace := namespaceName	
 
-	if (!CreateVaultPath(dataPath + "/default", vaultRootToken)){
-		fmt.Println("CreateVaultPath fail")
+	if (!CreateVaultPath(dataPath + "/default", vaultRootToken)){		
 		c.JSON(500, gin.H{"error": "CreateVaultPath fail",})
 		return
 	}
@@ -164,8 +158,7 @@ func EnableVault(c *gin.Context) {
 
 func CreateSecrets(c *gin.Context) {
     vaultRootToken := GetVaultRootToken()
-	if (vaultRootToken == "") {
-		fmt.Println("Get vault root token fail")
+	if (vaultRootToken == "") {		
 		c.JSON(500, gin.H{"error": "Get vault root token fail",})
 		return
 	}
@@ -186,15 +179,14 @@ func CreateSecrets(c *gin.Context) {
 		c.JSON(500, gin.H{"error": "Get vault token fail",})
 		return
 	}
+	logrus.Info("Vault token is ", token)
 
 	secretPath := fmt.Sprintf("clusterName/%s/namespaceName/%s/%s", clusterName, 
         namespaceName, path)		
 	buf := make([]byte, 1024)
-	n, _ := c.Request.Body.Read(buf)	
-	fmt.Printf("token is %s\r\n", token)
+	n, _ := c.Request.Body.Read(buf)		
 	resp, err := WriteSecrets(secretPath, buf[0:n], token)
-	if ( err != nil ) {
-		fmt.Printf("WriteSecrets fail:%v\r\n", err)
+	if ( err != nil ) {		
 		c.JSON(500, gin.H{"error": "WriteSecrets fail",})
 		return
 	}
@@ -207,7 +199,6 @@ func CreateSecrets(c *gin.Context) {
 
 
 func InjectSidecar(c *gin.Context) {    
-
 	mpToken := c.Request.Header["Authorization"][0][7:]	
 	clusterName := c.Param("clusterName")
 	namespaceName := c.Param("namespaceName")
@@ -223,15 +214,19 @@ func InjectSidecar(c *gin.Context) {
 		template += name.String() + ":" + "{{ .Data.data." + name.String() + " }}\r\n"
 	}
 	template += "{{ end }}"
-	fmt.Printf("template is %s", template)	                    
+	logrus.Info("Consul-template is ", template)	                    
 
 	if (!CreateConfigmap(clusterName, namespaceName, deploymentName, 
 		    kubernetesPath, template, mpToken)) {		
-		c.JSON(500, gin.H{"error": "Create configmap fail",})
+		c.JSON(500, gin.H{"error": "CreateConfigmap fail",})
 		return
 	}
 	if (!AddDeploymentLabel(clusterName, namespaceName, deploymentName, mpToken)) {
-		c.JSON(500, gin.H{"error": "Add label fail",})
+		c.JSON(500, gin.H{"error": "AddDeploymentLabel fail",})
+		return
+	}
+	if (!DeleteDeploymentPod(clusterName, namespaceName, deploymentName, mpToken)) {
+		c.JSON(500, gin.H{"error": "DeleteDeploymentPod fail",})
 		return
 	}
 	c.JSON(200, gin.H{"message": "success",})

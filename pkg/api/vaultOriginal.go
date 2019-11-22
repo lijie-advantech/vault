@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"encoding/json"		
 	"github.com/tidwall/gjson"
+	"github.com/sirupsen/logrus"
 	
 )
 
@@ -38,11 +39,11 @@ func CreateRole(path string, name string, saName string, saNamespace string,
 	body, _ := json.Marshal(st)
 	resp, err := httpDo("POST", url, body, "X-Vault-Token", vaultRootToken)
 	if err != nil {
-		fmt.Printf("vault api v1/auth/kubernetes/role/:name fail:%v\r\n", err)
+		logrus.Error(url, err)
 		return false
 	}	
 	bodyByte, err := ioutil.ReadAll(resp.Body)
-	fmt.Println(string(bodyByte))	
+	logrus.Info(string(bodyByte))	
 	return true
 	
 }
@@ -52,11 +53,10 @@ func IsKubernetesPathExist(path string, vaultRootToken string) (bool, error) {
 
 	resp, err := httpDo("GET", url, nil, "X-Vault-Token", vaultRootToken)
 	if err != nil {
-		fmt.Printf("vault api /v1/sys/auth fail:%v\r\n", err)
+		logrus.Error(url, err)
 		return false, err
 	}	
 	bodyByte, err := ioutil.ReadAll(resp.Body)	
-	fmt.Println(string(bodyByte))
 	bodyJson := make(map[string]interface{})
 	json.Unmarshal(bodyByte, &bodyJson)
 	if (bodyJson["errors"] != nil){
@@ -79,7 +79,7 @@ func EnableKubernetes(path string, vaultRootToken string) (bool){
 
 	_, err := httpDo("POST", url, body, "X-Vault-Token", vaultRootToken)
 	if (err != nil){
-		fmt.Printf("vault /v1/sys/auth/:path fail:%v\r\n", err)
+		logrus.Error(url, err)
 		return false
 	}
 	return true
@@ -95,7 +95,7 @@ func ConfigKubernetes(path string, host string, ca string, vaultRootToken string
 	body, _ := json.Marshal(st)
 	_, err := httpDo("POST", url, body, "X-Vault-Token", vaultRootToken)
 	if (err != nil){
-		fmt.Printf("vault /v1/auth/:path/config fail:%v\r\n", err)
+		logrus.Error(url, err)
 		return false
 	}
 	return true
@@ -110,18 +110,12 @@ func CreateVaultPath(path string, vaultRootToken string) (bool){
 	body, _ := json.Marshal(st)	
 	resp, err := httpDo("POST", url, body, "X-Vault-Token", vaultRootToken)	
 
-	if (err != nil) {		
-		fmt.Printf("vault /v1/secret/data/:path resp body:%v\r\n", resp.Body)		
+	if (err != nil || resp.StatusCode != 200) {	
+		bodyByte, _ := ioutil.ReadAll(resp.Body)
+		logrus.Error(url, err, string(bodyByte))				
 		return false		
-	} else {
-		if (resp.StatusCode != 200) {
-			fmt.Printf("vault /v1/secret/data/:path resp body:%v\r\n", resp.Body)
-			return false
-		}
-	}	
-	bodyByte, err := ioutil.ReadAll(resp.Body)
-	fmt.Println(string(bodyByte))	
-
+	} 
+	
 	return true
 }
 
@@ -135,11 +129,11 @@ func AddPolicy(name string, path string, vaultRootToken string) (bool){
 	
 	resp, err := httpDo("PUT", url, body, "X-Vault-Token", vaultRootToken)	
 	if (err != nil) {
-		fmt.Printf("vault /v1/sys/policies/acl/:name fail:%v\r\n", err)
+		logrus.Error(url, err)
 		return false
 	}
 	bodyByte, err := ioutil.ReadAll(resp.Body)
-	fmt.Println(string(bodyByte))	
+	logrus.Info(string(bodyByte))	
 	return true
 }
 
@@ -170,11 +164,11 @@ func LoginWithK8s(clusterName string, namespaceName string, jwtToken string,
 	kubernetesPath := "kubernetes-" + clusterName
 	respLogin, err := Login(kubernetesPath, roleName, jwtToken, vaultRootToken)	
 	if ( err != nil ){
-		fmt.Printf("Login fail:%v\r\n", err)		
+		logrus.Error(err)		
 		return ""
 	}
 	bodyByteLogin, err := ioutil.ReadAll(respLogin.Body)
-	fmt.Println(string(bodyByteLogin))	
+	logrus.Info(string(bodyByteLogin))	
 	token := gjson.GetBytes(bodyByteLogin, "auth.client_token").String()
 	return token	
 }

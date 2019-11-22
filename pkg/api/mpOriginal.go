@@ -9,7 +9,7 @@ import (
 	"io/ioutil"		
 	"github.com/tidwall/sjson"
 	"github.com/tidwall/gjson"
-	
+	"github.com/sirupsen/logrus"	
 )
 func GetDefaultSecretToken(clusterName string, namespaceName string, mpToken string) string{
 	//get secret token	
@@ -17,31 +17,26 @@ func GetDefaultSecretToken(clusterName string, namespaceName string, mpToken str
 	mpUrl := fmt.Sprintf("%s/v1/datacenter/cluster/%s/namespace/%s/secrets", 
 	    os.Getenv("MP_ADDR"), clusterName, namespaceName)	
 	respSec, err := httpDo("GET", mpUrl, nil, "Authorization", mpToken)	
-	if ( err != nil ) {
-		fmt.Printf("MP get secrets fail:%v", err)		
+	respBodySec, errRead := ioutil.ReadAll(respSec.Body)	
+	if ( err != nil || respSec.StatusCode != 200 ) {		
+		logrus.Error(mpUrl, err, string(respBodySec))		
 		return ""
-	}	
-	respBodySec, err := ioutil.ReadAll(respSec.Body)
-	fmt.Println(string(respBodySec))	
-	if (respSec.StatusCode != 200) {
-		fmt.Println(string(respBodySec))		
-		return ""
-	}	
-	if ( err != nil ) {
-		fmt.Printf("MP get secret body fail:%v", err)		
+	} 		
+	if ( errRead != nil ) {
+		logrus.Error(errRead)		
 		return ""
 	}		
 	result := gjson.GetBytes(respBodySec, `items`)	
 	for _, name := range result.Array() {
 		secretName := gjson.Get(name.String(), `metadata.name`)
-		fmt.Printf("secret name is: %s\r\n", secretName)
+		logrus.Info("secret name is ", secretName)
 		if (strings.Contains(secretName.String(), "default-token")) {
 			jwtStr := gjson.Get(name.String(), `data.token`)			
 			jwtBase64, _ := base64.StdEncoding.DecodeString(jwtStr.String())
 			jwtToken = string(jwtBase64)				
 		}
 	}
-	fmt.Printf("jwt token is:%s\r\n", jwtToken)	
+	logrus.Info("Jwt token is ", jwtToken)	
 	return jwtToken
 }
 
@@ -51,11 +46,10 @@ func CreateConfigmap(clusterName string, namespaceName string, deploymentName st
 	configmapName := deploymentName + "-vault-configmap"
 	mpUrl := fmt.Sprintf("%s/v1/datacenter/cluster/%s/namespace/%s/configmap/%s", 
 	    os.Getenv("MP_ADDR"), clusterName, namespaceName, configmapName)		
-    resp, err := httpDo("DELETE", mpUrl, nil, "Authorization", mpToken)	
-	bodyByte, _ := ioutil.ReadAll(resp.Body)
-	fmt.Println(string(bodyByte))
-	if ( err != nil ) {
-	    fmt.Printf("MP delete configmap fail:%v", err)	    
+    resp, err := httpDo("DELETE", mpUrl, nil, "Authorization", mpToken)		
+	if ( err != nil || resp.StatusCode != 200 ) {
+		respByte, _ := ioutil.ReadAll(resp.Body)
+	    logrus.Error(mpUrl, err, string(respByte))	    
 	    return false
 	}
 
@@ -63,7 +57,7 @@ func CreateConfigmap(clusterName string, namespaceName string, deploymentName st
 	curDir, _ := os.Getwd()
 	vacofByte, err := ioutil.ReadFile(curDir + "/vault-agent-config.hcl")
 	if err != nil {
-	    fmt.Printf("Read vault-agent-config fail: %s", err)	    
+	    logrus.Error(err)	    
 	    return false
 	}
 	vaconfStr := strings.Replace(string(vacofByte), "VAULT_ROLE", roleName, -1)
@@ -71,7 +65,7 @@ func CreateConfigmap(clusterName string, namespaceName string, deploymentName st
 
 	ctconfByte, err := ioutil.ReadFile(curDir + "/consul-template-config.hcl")
 	if err != nil {
-	    fmt.Printf("Read consul-template-config fail: %s", err)	    
+	    logrus.Error(err)	    
 	    return false
 	}
 	ctconfStr := strings.Replace(string(ctconfByte), "CONSUL_TEMPLATE", template, -1)
@@ -93,9 +87,10 @@ func CreateConfigmap(clusterName string, namespaceName string, deploymentName st
 	mpUrl = fmt.Sprintf("%s/v1/datacenter/cluster/%s/namespace/%s/configmap", 
 	    os.Getenv("MP_ADDR"), clusterName, namespaceName)	
 	
-	_, err = httpDo("POST", mpUrl, body, "Authorization", mpToken)	
-	if ( err != nil ) {
-	    fmt.Printf("MP create configmap fail:%v", err)	    
+	resp, err = httpDo("POST", mpUrl, body, "Authorization", mpToken)	
+	if ( err != nil || resp.StatusCode != 200 ) {
+		respByte, _ := ioutil.ReadAll(resp.Body)
+	    logrus.Error(mpUrl, err, string(respByte))	    
 	    return false
 	}
 	return true
@@ -109,7 +104,8 @@ func DeletePod(clusterName string, namespaceName string, podName string, mpToken
 	
 	resp, err := httpDo("DELETE", mpUrl, nil, "Authorization", mpToken)	
 	if ( err != nil || resp.StatusCode != 200 ) {
-	    fmt.Printf("MP delete pod fail:%v", err)	    
+		respByte, _ := ioutil.ReadAll(resp.Body)
+	    logrus.Error(mpUrl, err, string(respByte))	    
 	    return false
 	}
 	return true
@@ -122,37 +118,47 @@ func AddDeploymentLabel(clusterName string, namespaceName string, deploymentName
 	    os.Getenv("MP_ADDR"), clusterName, namespaceName, deploymentName)		
 	//get deployment
 	respDeploy, err := httpDo("GET", mpUrl, nil, "Authorization", mpToken)	
-	if ( err != nil ) {
-	    fmt.Printf("MP get pod fail:%v", err)	    
+	deployByte, _ := ioutil.ReadAll(respDeploy.Body)	
+	if ( err != nil || respDeploy.StatusCode != 200 ) {
+	    logrus.Error(mpUrl, err, string(deployByte))	    
 	    return false
 	}
-	deployByte, err := ioutil.ReadAll(respDeploy.Body)	
+	
 	//set label in deployment
 	outDeployByte, _ := sjson.SetBytes(deployByte, "spec.template.metadata.labels.vault-inject", "true")
 
 	//add label in deployment
-	_, err = httpDo("PUT", mpUrl, outDeployByte, "Authorization", mpToken)	
-	if ( err != nil ) {
-	    fmt.Printf("MP add label fail:%v", err)	    
+	resp, err := httpDo("PUT", mpUrl, outDeployByte, "Authorization", mpToken)	
+	if ( err != nil || resp.StatusCode != 200 ) {
+		respByte, _ := ioutil.ReadAll(resp.Body)
+	    logrus.Error(mpUrl, err, string(respByte))	    
 	    return false
 	}
+	return true
+}
 
+func DeleteDeploymentPod(clusterName string, namespaceName string, deploymentName string,
+	                  mpToken string) (bool) {
 	//get pods from deployment
-	mpUrl = fmt.Sprintf("%s/v1/datacenter/cluster/%s/namespace/%s/deploymentpods/%s", 
+	mpUrl := fmt.Sprintf("%s/v1/datacenter/cluster/%s/namespace/%s/deploymentpods/%s", 
 		os.Getenv("MP_ADDR"), clusterName, namespaceName, deploymentName)	
 	respPod, err := httpDo("GET", mpUrl, nil, "Authorization", mpToken)
-	if ( err != nil ) {
-		fmt.Printf("MP get deployment fail:%v", err)
+	podByte, _ := ioutil.ReadAll(respPod.Body)	
+	if ( err != nil || respPod.StatusCode != 200 ) {
+		logrus.Error(mpUrl, err, string(podByte))
 		return false
 	}	
-	podByte, err := ioutil.ReadAll(respPod.Body)	
+	
 	result := gjson.GetBytes( podByte, "#.metadata.name" )	
 	for _, name := range result.Array() {		
-		fmt.Printf("pod name is %s", name.String())
+		logrus.Info("pod name is ", name.String())
 		if ( !DeletePod(clusterName, namespaceName, name.String(), mpToken) ) {			
 			return false
 		}
-	}
-		
+	}		
 	return true
 }
+
+
+	
+

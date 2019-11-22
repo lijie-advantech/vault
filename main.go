@@ -9,7 +9,7 @@ import (
 
 
 
-func main() {	
+func main() {
 
 	r := gin.Default()
 	r.Use(AuthMiddleWare())
@@ -17,8 +17,7 @@ func main() {
 
 	r.POST("secret/clusterName/:clusterName/namespaceName/:namespaceName", api.EnableVault)
 	r.GET("secret/clusterName/:clusterName/namespaceName/:namespaceName", api.ListSecretKeys)
-	r.GET("secret/clusterName/:clusterName/namespaceName/:namespaceName/:path", api.ListSecrets)
-	
+	r.GET("secret/clusterName/:clusterName/namespaceName/:namespaceName/:path", api.ListSecrets)	
 	r.POST("secret/clusterName/:clusterName/namespaceName/:namespaceName/:path", api.CreateSecrets)
 	r.PUT("secret/clusterName/:clusterName/namespaceName/:namespaceName/deploymentName/:deploymentName", api.InjectSidecar)
        
@@ -29,14 +28,12 @@ func main() {
 func AuthMiddleWare() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		tokenArr := ctx.Request.Header["Authorization"]
-		if len(tokenArr) == 0 {
-			fmt.Println("Token format error")	
+		if len(tokenArr) == 0 {			
             ctx.JSON(500, gin.H{"error": "Token format error",})	
 			ctx.Abort()
 		}
 		tokenString := tokenArr[0]
-		if strings.Index(tokenString, "Bearer ") == -1 {
-			fmt.Println("Token format error")
+		if strings.Index(tokenString, "Bearer ") == -1 {			
             ctx.JSON(500, gin.H{"error": "Token format error",})
 			ctx.Abort()
 		}
