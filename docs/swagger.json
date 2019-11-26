@@ -1,0 +1,291 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "description": "This is vault api doc.",
+        "title": "Swagger Vault API",
+        "contact": {},
+        "license": {},
+        "version": "1.0"
+    },
+    "host": "127.0.0.1:3001",
+    "basePath": "/secret",
+    "paths": {
+        "/clusterName/{clusterName}/namespaceName/{namespaceName}": {
+            "get": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Cluster Name",
+                        "name": "clusterName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Namespace Name",
+                        "name": "namespaceName",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/model.Secret"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIError"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Cluster Name",
+                        "name": "clusterName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Namespace Name",
+                        "name": "namespaceName",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/model.APISuccess"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/clusterName/{clusterName}/namespaceName/{namespaceName}/deploymentName/{deploymentName}": {
+            "put": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Cluster Name",
+                        "name": "clusterName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Namespace Name",
+                        "name": "namespaceName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Deployment Name",
+                        "name": "deploymentName",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/model.APISuccess"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/clusterName/{clusterName}/namespaceName/{namespaceName}/{path}": {
+            "get": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Cluster Name",
+                        "name": "clusterName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Namespace Name",
+                        "name": "namespaceName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Secret Path",
+                        "name": "path",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/model.Secret"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIError"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Cluster Name",
+                        "name": "clusterName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Namespace Name",
+                        "name": "namespaceName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Secret Path",
+                        "name": "path",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/model.Secret"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/model.APIError"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "model.APIError": {
+            "type": "object",
+            "properties": {
+                "errorCode": {
+                    "type": "integer"
+                },
+                "errorMsg": {
+                    "type": "string"
+                }
+            }
+        },
+        "model.APISuccess": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string"
+                }
+            }
+        },
+        "model.Secret": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "description": "Data is the actual contents of the secret. The format of the data\nis arbitrary and up to the secret backend.",
+                    "type": "object"
+                },
+                "lease_duration": {
+                    "type": "integer"
+                },
+                "lease_id": {
+                    "type": "string"
+                },
+                "renewable": {
+                    "type": "boolean"
+                },
+                "request_id": {
+                    "description": "The request ID that generated this response",
+                    "type": "string"
+                },
+                "warnings": {
+                    "description": "Warnings contains any warnings related to the operation. These\nare not issues that caused the command to fail, but that the\nclient should be aware of.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        }
+    },
+    "securityDefinitions": {
+        "ApiKeyAuth": {
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header"
+        },
+        "BasicAuth": {
+            "type": "basic"
+        }
+    }
+}

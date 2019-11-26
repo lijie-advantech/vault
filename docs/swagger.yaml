@@ -1,0 +1,198 @@
+basePath: /secret
+definitions:
+  model.APIError:
+    properties:
+      errorCode:
+        type: integer
+      errorMsg:
+        type: string
+    type: object
+  model.APISuccess:
+    properties:
+      message:
+        type: string
+    type: object
+  model.Secret:
+    properties:
+      data:
+        description: |-
+          Data is the actual contents of the secret. The format of the data
+          is arbitrary and up to the secret backend.
+        type: object
+      lease_duration:
+        type: integer
+      lease_id:
+        type: string
+      renewable:
+        type: boolean
+      request_id:
+        description: The request ID that generated this response
+        type: string
+      warnings:
+        description: |-
+          Warnings contains any warnings related to the operation. These
+          are not issues that caused the command to fail, but that the
+          client should be aware of.
+        items:
+          type: string
+        type: array
+    type: object
+host: 127.0.0.1:3001
+info:
+  contact: {}
+  description: This is vault api doc.
+  license: {}
+  title: Swagger Vault API
+  version: "1.0"
+paths:
+  /clusterName/{clusterName}/namespaceName/{namespaceName}:
+    get:
+      consumes:
+      - application/json
+      parameters:
+      - description: Cluster Name
+        in: path
+        name: clusterName
+        required: true
+        type: string
+      - description: Namespace Name
+        in: path
+        name: namespaceName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.Secret'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.APIError'
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Cluster Name
+        in: path
+        name: clusterName
+        required: true
+        type: string
+      - description: Namespace Name
+        in: path
+        name: namespaceName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.APISuccess'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.APIError'
+  /clusterName/{clusterName}/namespaceName/{namespaceName}/{path}:
+    get:
+      consumes:
+      - application/json
+      parameters:
+      - description: Cluster Name
+        in: path
+        name: clusterName
+        required: true
+        type: string
+      - description: Namespace Name
+        in: path
+        name: namespaceName
+        required: true
+        type: string
+      - description: Secret Path
+        in: path
+        name: path
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.Secret'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.APIError'
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Cluster Name
+        in: path
+        name: clusterName
+        required: true
+        type: string
+      - description: Namespace Name
+        in: path
+        name: namespaceName
+        required: true
+        type: string
+      - description: Secret Path
+        in: path
+        name: path
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.Secret'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.APIError'
+  /clusterName/{clusterName}/namespaceName/{namespaceName}/deploymentName/{deploymentName}:
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: Cluster Name
+        in: path
+        name: clusterName
+        required: true
+        type: string
+      - description: Namespace Name
+        in: path
+        name: namespaceName
+        required: true
+        type: string
+      - description: Deployment Name
+        in: path
+        name: deploymentName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.APISuccess'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.APIError'
+securityDefinitions:
+  ApiKeyAuth:
+    in: header
+    name: Authorization
+    type: apiKey
+  BasicAuth:
+    type: basic
+swagger: "2.0"

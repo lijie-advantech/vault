@@ -6,20 +6,41 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/vault/vault/pkg/api"
+
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
+	_ "github.com/vault/vault/docs"
 )
 
+// @title Swagger Vault API
+// @version 1.0
+// @description This is vault api doc.
+
+// @host 127.0.0.1:3001
+// @BasePath /secret
+
+// @securityDefinitions.basic BasicAuth
+
+// @securityDefinitions.apikey ApiKeyAuth
+// @in header
+// @name Authorization
+
 func main() {
+	router := gin.New()
 
-	r := gin.Default()
-	r.Use(AuthMiddleWare())
+	//router.Use(AuthMiddleWare())
 
-	r.POST("secret/clusterName/:clusterName/namespaceName/:namespaceName", api.EnableVault)
-	r.GET("secret/clusterName/:clusterName/namespaceName/:namespaceName", api.ListSecretKeys)
-	r.GET("secret/clusterName/:clusterName/namespaceName/:namespaceName/:path", api.ListSecrets)
-	r.POST("secret/clusterName/:clusterName/namespaceName/:namespaceName/:path", api.CreateSecrets)
-	r.PUT("secret/clusterName/:clusterName/namespaceName/:namespaceName/deploymentName/:deploymentName", api.InjectSidecar)
+	path := "secret/clusterName/:clusterName/namespaceName/:namespaceName"
 
-	r.Run(":3001") // listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")
+	router.POST(path, api.EnableVault)
+	router.GET(path, api.ListSecretKeys)
+	router.GET(path+"/:path", api.ListSecrets)
+	router.POST(path+"/:path", api.CreateSecrets)
+	router.PUT(path+"/deploymentName/:deploymentName", api.InjectSidecar)
+
+	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+
+	router.Run(":3001") // listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")
 }
 
 func AuthMiddleWare() gin.HandlerFunc {

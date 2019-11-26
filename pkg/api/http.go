@@ -1,13 +1,11 @@
-
 package api
 
 import (
-	"fmt"
-	"bytes"	
+	"bytes"
 	"crypto/tls"
-	"net/http"	
+	"fmt"
+	"net/http"
 )
-
 
 func httpDo(method string, url string, body []byte, tokenHeader string, token string) (*http.Response, error) {
 	tr := &http.Transport{
@@ -17,7 +15,7 @@ func httpDo(method string, url string, body []byte, tokenHeader string, token st
 	http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 	req, err := http.NewRequest(method, url, bytes.NewReader(body))
 	if err != nil {
-		fmt.Println(err)		
+		fmt.Println(err)
 	}
 	req.Header.Set("Content-Type", "application/json")
 	if tokenHeader == "Authorization" {
@@ -26,5 +24,5 @@ func httpDo(method string, url string, body []byte, tokenHeader string, token st
 		req.Header.Set(tokenHeader, token)
 	}
 
-	return client.Do(req)	
+	return client.Do(req)
 }

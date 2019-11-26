@@ -4,37 +4,29 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"os"
-	"errors"
 
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
 	"github.com/tidwall/gjson"
+	"github.com/vault/vault/pkg/model"
+	"github.com/vault/vault/pkg/public"
 )
 
-func GetVaultRootToken() (string, error) {
-	curDir, err := os.Getwd()
-	if err != nil {
-		return "", err
-	}
-	bytes, err := ioutil.ReadFile(curDir + "/secrets/vault-secrets.txt")
-	logrus.Info("Read vault-secrets.txt content is ", string(bytes))
-	if err != nil {
-		logrus.Error(err)
-		return "", err
-	}
-	token := gjson.GetBytes(bytes, "VAULT_TOKEN").String()	
-	if (token == "") {
-		return "", errors.New("Get vault root token is empty")
-	}
-	logrus.Info("Vault root token is ", token)
-	return token, nil
-}
-
+// ListSecrets godoc
+// @Summary
+// @Description
+// @Accept  json
+// @Produce  json
+// @Param clusterName path string true "Cluster Name"
+// @Param namespaceName path string true "Namespace Name"
+// @Param path path string true "Secret Path"
+// @Success 200 {object} model.Secret
+// @Failure 500 {object} model.APIError
+// @Router /clusterName/{clusterName}/namespaceName/{namespaceName}/{path} [get]
 func ListSecrets(c *gin.Context) {
-	vaultRootToken, err := GetVaultRootToken()
+	vaultRootToken, err := public.GetVaultRootToken()
 	if err != nil {
-		c.JSON(500, gin.H{"error": err.Error()})
+		c.JSON(500, model.APIError{ErrorMessage: err.Error()})
 		return
 	}
 
@@ -45,13 +37,13 @@ func ListSecrets(c *gin.Context) {
 
 	jwtToken, err := GetDefaultSecretToken(clusterName, namespaceName, mpToken)
 	if err != nil {
-		c.JSON(500, gin.H{"error": err.Error()})
+		c.JSON(500, model.APIError{ErrorMessage: err.Error()})
 		return
 	}
 
 	token, err := LoginWithK8s(clusterName, namespaceName, jwtToken, vaultRootToken)
 	if err != nil {
-		c.JSON(500, gin.H{"error": err.Error()})
+		c.JSON(500, model.APIError{ErrorMessage: err.Error()})
 		return
 	}
 
@@ -59,52 +51,71 @@ func ListSecrets(c *gin.Context) {
 		namespaceName, path)
 	resp, err := ReadSecrets(secretPath, token)
 	if err != nil {
-		c.JSON(500, gin.H{"error": err.Error()})
+		c.JSON(500, model.APIError{ErrorMessage: err.Error()})
 		return
 	}
 	bodyByte, err := ioutil.ReadAll(resp.Body)
-	bodyJson := make(map[string]interface{})
-	json.Unmarshal(bodyByte, &bodyJson)
-	c.JSON(resp.StatusCode, bodyJson)
+	body := &model.Secret{}
+	json.Unmarshal(bodyByte, &body)
+	c.JSON(resp.StatusCode, body)
 
 }
 
+// ListSecretKeys godoc
+// @Summary
+// @Description
+// @Accept  json
+// @Produce  json
+// @Param clusterName path string true "Cluster Name"
+// @Param namespaceName path string true "Namespace Name"
+// @Success 200 {object} model.Secret
+// @Failure 500 {object} model.APIError
+// @Router /clusterName/{clusterName}/namespaceName/{namespaceName} [get]
 func ListSecretKeys(c *gin.Context) {
-	vaultRootToken, err := GetVaultRootToken()
+	vaultRootToken, err := public.GetVaultRootToken()
 	if err != nil {
-		c.JSON(500, gin.H{"error": err.Error()})
+		c.JSON(500, model.APIError{ErrorMessage: err.Error()})
 		return
 	}
-	
+
 	clusterName := c.Param("clusterName")
 	namespaceName := c.Param("namespaceName")
 
 	secretPath := fmt.Sprintf("clusterName/%s/namespaceName/%s", clusterName, namespaceName)
 	resp, err := ReadSecretKeys(secretPath, vaultRootToken)
 	if err != nil {
-		c.JSON(500, gin.H{"error": err.Error()})
+		c.JSON(500, model.APIError{ErrorMessage: err.Error()})
 		return
 	}
 	defer resp.Body.Close()
 	bodyByte, err := ioutil.ReadAll(resp.Body)
-	if (err != nil) {
-		c.JSON(500, gin.H{"error": err.Error()})
-		return 
+	if err != nil {
+		c.JSON(500, model.APIError{ErrorMessage: err.Error()})
+		return
 	}
-
-	bodyJson := make(map[string]interface{})
-	json.Unmarshal(bodyByte, &bodyJson)
-	c.JSON(resp.StatusCode, bodyJson)
+	body := &model.Secret{}
+	json.Unmarshal(bodyByte, &body)
+	c.JSON(resp.StatusCode, body)
 
 }
 
+// EnableVault godoc
+// @Summary
+// @Description
+// @Accept  json
+// @Produce  json
+// @Param clusterName path string true "Cluster Name"
+// @Param namespaceName path string true "Namespace Name"
+// @Success 200 {object} model.APISuccess
+// @Failure 500 {object} model.APIError
+// @Router /clusterName/{clusterName}/namespaceName/{namespaceName} [post]
 func EnableVault(c *gin.Context) {
-	vaultRootToken, err := GetVaultRootToken()
+	vaultRootToken, err := public.GetVaultRootToken()
 	if err != nil {
-		c.JSON(500, gin.H{"error": err.Error()})
+		c.JSON(500, model.APIError{ErrorMessage: err.Error()})
 		return
 	}
-	
+
 	clusterName := c.Param("clusterName")
 	namespaceName := c.Param("namespaceName")
 	kubernetesPath := "kubernetes-" + clusterName
@@ -116,30 +127,41 @@ func EnableVault(c *gin.Context) {
 
 	err = CreateVaultPath(dataPath+"/default", vaultRootToken)
 	if err != nil {
-		c.JSON(500, gin.H{"error": err.Error()})
+		c.JSON(500, model.APIError{ErrorMessage: err.Error()})
 		return
 	}
 	err = AddPolicy(policyName, dataPath, vaultRootToken)
 	if err != nil {
-		c.JSON(500, gin.H{"error": err.Error()})
+		c.JSON(500, model.APIError{ErrorMessage: err.Error()})
 		return
 	}
 
 	err = CreateRole(kubernetesPath, roleName, saName, saNamespace, policyName, vaultRootToken)
 	if err != nil {
-		c.JSON(500, gin.H{"error": err.Error()})
+		c.JSON(500, model.APIError{ErrorMessage: err.Error()})
 		return
 	}
-	c.JSON(200, gin.H{"message": "success"})
+	c.JSON(200, model.APISuccess{Message: "success"})
 }
 
+// CreateSecrets godoc
+// @Summary
+// @Description
+// @Accept  json
+// @Produce  json
+// @Param clusterName path string true "Cluster Name"
+// @Param namespaceName path string true "Namespace Name"
+// @Param path path string true "Secret Path"
+// @Success 200 {object} model.Secret
+// @Failure 500 {object} model.APIError
+// @Router /clusterName/{clusterName}/namespaceName/{namespaceName}/{path} [post]
 func CreateSecrets(c *gin.Context) {
-	vaultRootToken, err := GetVaultRootToken()
+	vaultRootToken, err := public.GetVaultRootToken()
 	if err != nil {
-		c.JSON(500, gin.H{"error": err.Error()})
+		c.JSON(500, model.APIError{ErrorMessage: err.Error()})
 		return
 	}
-	
+
 	mpToken := c.Request.Header["Authorization"][0][7:]
 	clusterName := c.Param("clusterName")
 	namespaceName := c.Param("namespaceName")
@@ -147,13 +169,13 @@ func CreateSecrets(c *gin.Context) {
 
 	jwtToken, err := GetDefaultSecretToken(clusterName, namespaceName, mpToken)
 	if err != nil {
-		c.JSON(500, gin.H{"error": err.Error()})
+		c.JSON(500, model.APIError{ErrorMessage: err.Error()})
 		return
 	}
 
 	token, err := LoginWithK8s(clusterName, namespaceName, jwtToken, vaultRootToken)
 	if err != nil {
-		c.JSON(500, gin.H{"error": err.Error()})
+		c.JSON(500, model.APIError{ErrorMessage: err.Error()})
 		return
 	}
 	logrus.Info("Vault token is ", token)
@@ -164,16 +186,27 @@ func CreateSecrets(c *gin.Context) {
 	n, _ := c.Request.Body.Read(buf)
 	resp, err := WriteSecrets(secretPath, buf[0:n], token)
 	if err != nil {
-		c.JSON(500, gin.H{"error": err.Error()})
+		c.JSON(500, model.APIError{ErrorMessage: err.Error()})
 		return
 	}
 	bodyByte, err := ioutil.ReadAll(resp.Body)
-	bodyJson := make(map[string]interface{})
+	bodyJson := &model.Secret{}
 	json.Unmarshal(bodyByte, &bodyJson)
 	c.JSON(resp.StatusCode, bodyJson)
 
 }
 
+// InjectSidecar godoc
+// @Summary
+// @Description
+// @Accept  json
+// @Produce  json
+// @Param clusterName path string true "Cluster Name"
+// @Param namespaceName path string true "Namespace Name"
+// @Param deploymentName path string true "Deployment Name"
+// @Success 200 {object} model.APISuccess
+// @Failure 500 {object} model.APIError
+// @Router /clusterName/{clusterName}/namespaceName/{namespaceName}/deploymentName/{deploymentName} [put]
 func InjectSidecar(c *gin.Context) {
 
 	mpToken := c.Request.Header["Authorization"][0][7:]
@@ -196,21 +229,21 @@ func InjectSidecar(c *gin.Context) {
 	err := CreateConfigmap(clusterName, namespaceName, deploymentName,
 		kubernetesPath, template, mpToken)
 	if err != nil {
-		c.JSON(500, gin.H{"error": err.Error()})
+		c.JSON(500, model.APIError{ErrorMessage: err.Error()})
 		return
 	}
 
 	err = AddDeploymentLabel(clusterName, namespaceName, deploymentName, mpToken)
 	if err != nil {
-		c.JSON(500, gin.H{"error": err.Error()})
+		c.JSON(500, model.APIError{ErrorMessage: err.Error()})
 		return
 	}
 
 	err = DeleteDeploymentPod(clusterName, namespaceName, deploymentName, mpToken)
 	if err != nil {
-		c.JSON(500, gin.H{"error": err.Error()})
+		c.JSON(500, model.APIError{ErrorMessage: err.Error()})
 		return
 	}
-	c.JSON(200, gin.H{"message": "success"})
+	c.JSON(200, model.APISuccess{Message: "success"})
 
 }

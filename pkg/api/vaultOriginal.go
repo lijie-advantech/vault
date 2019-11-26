@@ -28,7 +28,7 @@ func Login(path string, role string, jwt string, vaultRootToken string) (*http.R
 }
 
 func CreateRole(path string, name string, saName string, saNamespace string,
-	policyName string, vaultRootToken string) (error) {
+	policyName string, vaultRootToken string) error {
 	url := fmt.Sprintf("%s/v1/auth/%s/role/%s", os.Getenv("VAULT_ADDR"), path, name)
 
 	st := make(map[string]interface{})
@@ -58,9 +58,7 @@ func CreateRole(path string, name string, saName string, saNamespace string,
 
 }
 
-
-
-func CreateVaultPath(path string, vaultRootToken string) (error) {
+func CreateVaultPath(path string, vaultRootToken string) error {
 	url := fmt.Sprintf("%s/v1/secret/data/%s", os.Getenv("VAULT_ADDR"), path)
 
 	st := make(map[string]interface{})
@@ -89,14 +87,14 @@ func CreateVaultPath(path string, vaultRootToken string) (error) {
 	return nil
 }
 
-func AddPolicy(name string, path string, vaultRootToken string) (error) {
+func AddPolicy(name string, path string, vaultRootToken string) error {
 	url := fmt.Sprintf("%s/v1/sys/policies/acl/%s", os.Getenv("VAULT_ADDR"), name)
 
 	st := make(map[string]interface{})
 	policy := fmt.Sprintf("path \"secret/data/%s/*\" { \n capabilities = [\"create\", \"read\", \"update\", \"delete\", \"list\", \"sudo\"]  \n}", path)
 	st["policy"] = policy
 	body, err := json.Marshal(st)
-	if (err != nil) {
+	if err != nil {
 		return err
 	}
 
